@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home prices vs. young adults' incomes, 2000-2026</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --surface: #f4f3ef;
+    --text: #1a1a19;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --border: rgba(11, 11, 11, 0.15);
+    --border-strong: rgba(11, 11, 11, 0.45);
+    --grid: rgba(128, 128, 128, 0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a19;
+      --surface: #262624;
+      --text: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --border: rgba(255, 255, 255, 0.15);
+      --border-strong: rgba(255, 255, 255, 0.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem 3rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 24px; font-weight: 500; margin: 0 0 0.25rem; }
+  .sub { color: var(--text-secondary); margin: 0 0 1.5rem; font-size: 15px; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .card { background: var(--surface); border-radius: 8px; padding: 1rem; }
+  .card .label { font-size: 13px; color: var(--text-secondary); }
+  .card .value { font-size: 26px; font-weight: 500; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  button {
+    font: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--surface); }
+  button[aria-pressed="true"] { background: var(--surface); border-color: var(--text); }
+  button:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+  #legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);
+  }
+  .chart-wrap { position: relative; width: 100%; height: 380px; }
+  .note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Home prices vs. young adults' incomes, 2000-2026</h1>
+  <p class="sub">Median home price and median income for households headed by adults under 40. Pew's series ends in 2024, so 2025-26 is left blank.</p>
+
+  <div class="cards">
+    <div class="card"><div class="label">Home price since 2000</div><div class="value" id="m-price"></div></div>
+    <div class="card"><div class="label">Income since 2000</div><div class="value" id="m-income"></div></div>
+    <div class="card"><div class="label">Price-to-income, 2000 to 2024</div><div class="value" id="m-ratio"></div></div>
+  </div>
+
+  <div class="controls">
+    <button id="b-dollars">Dollars</button>
+    <button id="b-index">Indexed to 2000</button>
+    <button id="b-ratio">Price-to-income</button>
+  </div>
+  <div id="legend"></div>
+  <div class="chart-wrap">
+    <canvas id="c" role="img" aria-label="Line chart, 2000 to 2024. Home price rises from 200,500 to 350,000 dollars while under-40 household income rises from 79,900 to 100,900 dollars. The price-to-income ratio goes from 2.5 to a 2006 peak of 3.6 and 3.5 in 2024. No data for 2025 and 2026.">Median home price rose from $200,500 to $350,000 between 2000 and 2024; income rose from $79,900 to $100,900.</canvas>
+  </div>
+  <p class="note">Source: Pew Research Center, "Buying a home has gotten harder for young adults in most U.S. metro areas" (June 24, 2026), based on the American Community Survey and the Current Population Survey ASEC (IPUMS). Dollars are 2024 dollars; income is scaled to a three-person household.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const years = [];
+for (let y = 2000; y <= 2026; y++) years.push(y);
+const pad = a => a.concat([null, null]);
+
+const price = pad([200500,209300,222500,234300,249600,265700,272700,265700,233600,221800,209700,192900,194200,205300,213000,226800,238800,249500,259500,269600,288800,318400,331000,337900,350000]);
+const income = pad([79900,78900,78300,76300,75900,75700,76300,78100,75900,72400,70500,68300,69800,71200,72100,78000,83500,84600,87400,92700,92400,94200,92100,96000,100900]);
+const ratio = pad([2.5,2.7,2.8,3.1,3.3,3.5,3.6,3.4,3.1,3.1,3.0,2.8,2.8,2.9,3.0,2.9,2.9,2.9,3.0,2.9,3.1,3.4,3.6,3.5,3.5]);
+const ref = years.map(() => 2.5);
+const idx = a => a.map(v => v === null ? null : Math.round(v / a[0] * 1000) / 10);
+
+const css = getComputedStyle(document.documentElement);
+const cv = (name, fallback) => (css.getPropertyValue(name) || '').trim() || fallback;
+const PRICE = '#eb6834', INCOME = '#2a78d6';
+const INK = cv('--text-secondary', '#52514e');
+const MUTED = cv('--text-muted', '#898781');
+const GRID = 'rgba(128,128,128,0.18)';
+
+document.getElementById('m-price').textContent = '+' + Math.round((price[24] / price[0] - 1) * 100) + '%';
+document.getElementById('m-income').textContent = '+' + Math.round((income[24] / income[0] - 1) * 100) + '%';
+document.getElementById('m-ratio').textContent = ratio[0].toFixed(1) + ' to ' + ratio[24].toFixed(1);
+
+const gapPlugin = {
+  id: 'gap',
+  beforeDatasetsDraw(chart) {
+    const x = chart.scales.x, a = chart.chartArea, ctx = chart.ctx;
+    const left = (x.getPixelForValue(24) + x.getPixelForValue(25)) / 2;
+    ctx.save();
+    ctx.fillStyle = 'rgba(128,128,128,0.14)';
+    ctx.fillRect(left, a.top, a.right - left, a.bottom - a.top);
+    ctx.translate((left + a.right) / 2, a.top + (a.bottom - a.top) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = MUTED;
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No Pew data', 0, 4);
+    ctx.restore();
+  }
+};
+
+const fmtUSD = v => '$' + Math.round(v).toLocaleString();
+const views = {
+  dollars: {
+    sets: [
+      { label: 'Median home price', data: price, color: PRICE },
+      { label: 'Median income, under 40', data: income, color: INCOME }
+    ],
+    y: { min: 0, max: 400000, ticks: { callback: v => v === 0 ? '$0' : '$' + (v / 1000) + 'k' } },
+    tip: v => fmtUSD(v)
+  },
+  index: {
+    sets: [
+      { label: 'Median home price', data: idx(price), color: PRICE },
+      { label: 'Median income, under 40', data: idx(income), color: INCOME }
+    ],
+    y: { min: 60, max: 190, ticks: { callback: v => v } },
+    tip: v => v.toFixed(0) + ' (2000 = 100)'
+  },
+  ratio: {
+    sets: [
+      { label: 'Price-to-income ratio', data: ratio, color: INK },
+      { label: 'About 2.5, the 1975-2000 norm', data: ref, color: MUTED, dash: [6, 5] }
+    ],
+    y: { min: 2, max: 4, ticks: { callback: v => v.toFixed(1) } },
+    tip: v => v.toFixed(1)
+  }
+};
+
+function build(view) {
+  return view.sets.map(s => ({
+    label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color,
+    borderWidth: 2, borderDash: s.dash || [], pointRadius: 0, pointHoverRadius: 5,
+    tension: 0.15, spanGaps: false, borderJoinStyle: 'round', borderCapStyle: 'round'
+  }));
+}
+
+const chart = new Chart(document.getElementById('c'), {
+  type: 'line',
+  data: { labels: years, datasets: build(views.dollars) },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: c => c.parsed.y === null ? '' : ' ' + c.dataset.label + ': ' + views.dollars.tip(c.parsed.y)
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: MUTED, autoSkip: false, maxRotation: 0, callback: (v, i) => years[i] % 2 === 0 ? years[i] : '' }
+      },
+      y: Object.assign({ grid: { color: GRID } }, views.dollars.y,
+        { ticks: Object.assign({ color: MUTED }, views.dollars.y.ticks) })
+    }
+  },
+  plugins: [gapPlugin]
+});
+
+function setLegend(view) {
+  document.getElementById('legend').innerHTML = view.sets.map(s =>
+    '<span style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:' +
+    (s.dash ? 14 : 10) + 'px;height:' + (s.dash ? 0 : 10) + 'px;border-radius:2px;' +
+    (s.dash ? 'border-top:2px dashed ' + s.color : 'background:' + s.color) + ';"></span>' + s.label + '</span>'
+  ).join('');
+}
+
+const btns = {
+  dollars: document.getElementById('b-dollars'),
+  index: document.getElementById('b-index'),
+  ratio: document.getElementById('b-ratio')
+};
+
+function show(name) {
+  const view = views[name];
+  chart.data.datasets = build(view);
+  chart.options.scales.y.min = view.y.min;
+  chart.options.scales.y.max = view.y.max;
+  chart.options.scales.y.ticks.callback = view.y.ticks.callback;
+  chart.options.plugins.tooltip.callbacks.label =
+    c => c.parsed.y === null ? '' : ' ' + c.dataset.label + ': ' + view.tip(c.parsed.y);
+  chart.update();
+  setLegend(view);
+  Object.keys(btns).forEach(k => btns[k].setAttribute('aria-pressed', k === name ? 'true' : 'false'));
+}
+
+Object.keys(btns).forEach(k => btns[k].addEventListener('click', () => show(k)));
+show('dollars');
+</script>
+</body>
+</html>
